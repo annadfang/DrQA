@@ -32,7 +32,6 @@ class StackedBRNN(nn.Module):
             self.rnns.append(rnn_type(input_size, hidden_size,
                                       num_layers=1,
                                       bidirectional=True))
-        self.output = output
 
     def forward(self, x, x_mask):
         """Can choose to either handle or ignore variable length sequences.
