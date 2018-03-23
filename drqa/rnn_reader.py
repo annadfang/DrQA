@@ -184,6 +184,8 @@ class RnnDocReader(nn.Module):
            #     end_positions.pop(i)
 
         start_scores = sum(start_positions)/len(start_positions)
+        print("start_positions: ", start_positions)
+        print("len start_positions: ", len(start_positions))
         end_scores = sum(end_positions)/len(end_positions)
 #   
         if self.training:
