@@ -142,7 +142,6 @@ class RnnDocReader(nn.Module):
         drnn_input = torch.cat(drnn_input_list, 2)
         # Encode document with RNN
         doc_hiddens = self.doc_rnn(drnn_input, x1_mask)
-        print("doc_hiddens: ", doc_hiddens)
         # Encode question with RNN + merge hiddens
         question_hiddens = self.question_rnn(x2_emb, x2_mask)
         if self.opt['question_merge'] == 'avg':
@@ -171,8 +170,11 @@ class RnnDocReader(nn.Module):
             start_positions.append(start_answer)
             end_weighted = layers.weighted_avg(doc_hiddens,start_exp)
             end_weighted = torch.cat([s_t, end_weighted], dim=1)
+
             end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
-            #end_answer = end_answer.exp() if self.training else end_answer
+            print("end_answer before exp(): ", end_answer)
+            end_answer = end_answer.exp() if self.training else end_answer
+            print("end_answer after exp(): ", end_answer)
             end_positions.append(end_answer)
 
         #for i in range(len(start_positions)):
@@ -184,7 +186,7 @@ class RnnDocReader(nn.Module):
         end_scores = sum(end_positions)/len(end_positions)
 #   
         if self.training:
-            print(torch.log(start_scores),torch.log(end_scores))
+            print("output: ", torch.log(start_scores),torch.log(end_scores))
             return torch.log(start_scores), torch.log(end_scores)
         else:
             return start_scores, end_scores
