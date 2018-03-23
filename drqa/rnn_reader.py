@@ -183,10 +183,10 @@ class RnnDocReader(nn.Module):
           #      start_positions.pop(i)
            #     end_positions.pop(i)
 
-        start_scores = start_positions
+        start_scores = start_positions[0]
         #print("start_positions: ", start_positions)
         #print("len start_positions: ", len(start_positions))
-        end_scores = end_positions
+        end_scores = end_positions[0]
 #   
         if self.training:
             #print("output: ", torch.log(start_scores))
