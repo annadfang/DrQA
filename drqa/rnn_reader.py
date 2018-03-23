@@ -166,14 +166,15 @@ class RnnDocReader(nn.Module):
         x_beta = x_beta.exp() if self.training else x_beta
         x_t = layers.weighted_avg(doc_hiddens, x_beta)
         s_t = self.gru_cell(x_t,s_t)
-        start_answer = self.start_attn(doc_hiddens, s_t, x1_mask) #use updated s
-        start_answer = start_answer.exp() if self.training else start_answer
+        #start_answer = self.start_attn(doc_hiddens, s_t, x1_mask) #use updated s
+        start_answer = self.start_attn(doc_hiddens,question_hidden,x1_mask)
+        #start_answer = start_answer.exp() if self.training else start_answer
         start_positions.append(start_answer)
-        end_weighted = layers.weighted_avg(doc_hiddens,start_answer)
-          #  print("start_answer: ", start_answer)
-        end_weighted = torch.cat([s_t, end_weighted], dim=1)
-        end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
-        end_answer = end_answer.exp() if self.training else end_answer
+        #end_weighted = layers.weighted_avg(doc_hiddens,start_answer)
+        #end_weighted = torch.cat([s_t, end_weighted], dim=1)
+        #end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
+        end_answer = self.end_attn(doc_hiddens, question_hidden, x1_mask)
+        #end_answer = end_answer.exp() if self.training else end_answer
         end_positions.append(end_answer)
 
         #for i in range(drop_rate):
