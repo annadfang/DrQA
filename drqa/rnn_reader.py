@@ -167,14 +167,15 @@ class RnnDocReader(nn.Module):
             s_t = self.gru_cell(x_t,s_t)
             start_answer = self.start_attn(doc_hiddens, s_t, x1_mask)
             start_exp = start_answer.exp() if self.training else start_answer
+            print("start_exp: ", start_exp)
             start_positions.append(start_answer)
             end_weighted = layers.weighted_avg(doc_hiddens,start_exp)
             end_weighted = torch.cat([s_t, end_weighted], dim=1)
 
             end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
-            print("end_answer before exp(): ", end_answer)
+            #print("end_answer before exp(): ", end_answer)
             end_answer = end_answer.exp() if self.training else end_answer
-            print("end_answer after exp(): ", end_answer)
+            #print("end_answer after exp(): ", end_answer)
             end_positions.append(end_answer)
 
         #for i in range(len(start_positions)):
@@ -186,7 +187,7 @@ class RnnDocReader(nn.Module):
         end_scores = sum(end_positions)/len(end_positions)
 #   
         if self.training:
-            print("output: ", torch.log(start_scores),torch.log(end_scores))
+            print("output: ", torch.log(start_scores))
             return torch.log(start_scores), torch.log(end_scores)
         else:
             return start_scores, end_scores
