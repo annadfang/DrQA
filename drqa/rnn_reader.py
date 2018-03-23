@@ -109,7 +109,6 @@ class RnnDocReader(nn.Module):
             doc_hidden_size,
             question_hidden_size,
         )
-
     def forward(self, x1, x1_f, x1_pos, x1_ner, x1_mask, x2, x2_mask):
         """Inputs:
         x1 = document word indices             [batch * len_d]
@@ -143,7 +142,7 @@ class RnnDocReader(nn.Module):
         drnn_input = torch.cat(drnn_input_list, 2)
         # Encode document with RNN
         doc_hiddens = self.doc_rnn(drnn_input, x1_mask)
-
+        print("doc_hiddens: ", doc_hiddens)
         # Encode question with RNN + merge hiddens
         question_hiddens = self.question_rnn(x2_emb, x2_mask)
         if self.opt['question_merge'] == 'avg':
@@ -152,31 +151,42 @@ class RnnDocReader(nn.Module):
             q_merge_weights = self.self_attn(question_hiddens, x2_mask)
         question_hidden = layers.weighted_avg(question_hiddens, q_merge_weights)
 
-        ##############
+       # Predict start and end positions
+       # start_scores = self.start_attn(doc_hiddens, question_hidden, x1_mask)
+       # end_scores = self.end_attn(doc_hiddens, question_hidden, x1_mask)
+       # return start_scores, end_score
+        doc_temp = doc_hiddens.clone() 
         s_t = question_hidden
         time_steps = 1 # opt['doc layers']
         #drop_rate = 2
         start_positions = []
         end_positions = []
-        for i in range(time_steps):
-            x_t = self.beta(s_t, x1_mask)
-            s_t = self.grucell(x_t,s_t)
-            start_answer = self.start_attn(doc_hiddens, s_t, x1_mask) #use updated s
-            start_answer = start_answer.exp() if self.training else start_answer
-            start_positions.append(start_answer)
-            end_weighted = layers.weighted_avg(doc_hiddens,start_answer)
-            end_weighted = torch.cat([s_t, end_weighted], dim=1)
-            end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
-            end_positions.append(end_answer)
+#        for i in range(time_steps):
+        x_beta = self.beta(doc_hiddens,s_t, x1_mask)
+        x_beta = x_beta.exp() if self.training else x_beta
+        x_t = layers.weighted_avg(doc_hiddens, x_beta)
+        s_t = self.gru_cell(x_t,s_t)
+        start_answer = self.start_attn(doc_hiddens, s_t, x1_mask) #use updated s
+        start_answer = start_answer.exp() if self.training else start_answer
+        start_positions.append(start_answer)
+        end_weighted = layers.weighted_avg(doc_hiddens,start_answer)
+          #  print("start_answer: ", start_answer)
+        end_weighted = torch.cat([s_t, end_weighted], dim=1)
+        end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
+        end_answer = end_answer.exp() if self.training else end_answer
+        end_positions.append(end_answer)
 
         #for i in range(drop_rate):
             #pos = random.randint(len(start_positions))
             #start_positions.pop(pos)
             #end_positions.pop(pos)
+       # print("start scores:",start_positions)
+       # print("end scores:",end_positions)
+        start_scores = sum(start_positions)/len(start_positions)
+        end_scores = sum(end_positions)/len(end_positions)
+        doc_hiddens = doc_temp
+#        print("doc_hiddens: ", doc_hiddens)
         if self.training:
-            return log(sum(start_scores)/len(smart_scores)), log(sum(end_scores)/len(end_scores))
+            return torch.log(start_scores), torch.log(end_scores)
         else:
-            return sum(start_scores)/len(smart_scores), sum(end_scores)/len(end_scores)
-
-        ##############
-        
+            return start_scores, end_scores
