@@ -177,14 +177,20 @@ class RnnDocReader(nn.Module):
 
             end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
             end_positions.append(end_answer)
-
         a = []
         for i in range(len(start_positions)):
-            if random.random() < 0.4:
+            if (random.random() < 0.4):
                 a.append(i)
-        for i in range(len(a)):
-            start_positions.pop(a[i])
-            end_positions.pop(a[i])
+
+        for i in sorted(a):
+            if (len(start_positions) >1):
+                del start_positions[i]
+                del end_positions[i]
+        
+        #for i in range(len(start_positions)):
+         #   if random.random() < 0.4:
+          #      start_positions.pop(i)
+           #     end_positions.pop(i)
 
         start_scores = sum(start_positions)/float(len(start_positions))
         end_scores = sum(end_positions)/float(len(end_positions))
