@@ -5,7 +5,9 @@
 # of patent rights can be found in the PATENTS file in the same directory.
 import torch
 import torch.nn as nn
+import random
 from . import layers
+#import numpy as np
 
 # Modification: add 'pos' and 'ner' features.
 # Origin: https://github.com/facebookresearch/ParlAI/tree/master/parlai/agents/drqa
@@ -98,7 +100,8 @@ class RnnDocReader(nn.Module):
         self.end_attn = layers.BilinearSeqAttn(
             doc_hidden_size,
             doc_hidden_size + question_hidden_size,
-        )
+#            question_hidden_size, 
+       )
 
         self.beta = layers.BilinearSeqAttn(
             doc_hidden_size,
@@ -150,16 +153,17 @@ class RnnDocReader(nn.Module):
             q_merge_weights = self.self_attn(question_hiddens, x2_mask)
         question_hidden = layers.weighted_avg(question_hiddens, q_merge_weights)
 
-       # Predict start and end positions
-       # start_scores = self.start_attn(doc_hiddens, question_hidden, x1_mask)
-       # end_scores = self.end_attn(doc_hiddens, question_hidden, x1_mask)
-       # return start_scores, end_score
+       # Predict start and end positions       
+        #start_scores = self.start_attn(doc_hiddens, question_hidden, x1_mask)
+        #end_scores = self.end_attn(doc_hiddens, question_hidden, x1_mask)
+        #print("start_scores: ", start_scores)
+        #return start_scores, end_scores
 
         s_t = question_hidden
-        time_steps = 1
+        time_steps = 10
         drop_rate = 0.4
-        start_positions = []
-        end_positions = []
+        start_positions = np.zeros(time_steps)
+        end_positions = np.zeros(time_steps)
         for i in range(time_steps):
             x_beta = self.beta(doc_hiddens,s_t, x1_mask)
             x_beta = x_beta.exp() if self.training else x_beta
@@ -167,29 +171,28 @@ class RnnDocReader(nn.Module):
             s_t = self.gru_cell(x_t,s_t)
             start_answer = self.start_attn(doc_hiddens, s_t, x1_mask)
             start_exp = start_answer.exp() if self.training else start_answer
-            print("start_exp: ", start_exp)
-            start_positions.append(start_answer)
+            start_positions = np.insert(start_positions,i,start_answer)
             end_weighted = layers.weighted_avg(doc_hiddens,start_exp)
             end_weighted = torch.cat([s_t, end_weighted], dim=1)
 
             end_answer = self.end_attn(doc_hiddens, end_weighted, x1_mask)
-            #print("end_answer before exp(): ", end_answer)
-            end_answer = end_answer.exp() if self.training else end_answer
-            #print("end_answer after exp(): ", end_answer)
-            end_positions.append(end_answer)
+            end_positions = np.insert(end_positions,i,end_answer)
+        a =  np.ones(len(start_positions))
+        for i in range(len(a)):
+            if (random.random() < 0.4):
+                np.insert(a,i,False)
 
+        start_positions = start_positions[a]
+        end_positions = end_positions[a]
         #for i in range(len(start_positions)):
          #   if random.random() < 0.4:
           #      start_positions.pop(i)
            #     end_positions.pop(i)
 
-        start_scores = start_positions[0]
-        #print("start_positions: ", start_positions)
-        #print("len start_positions: ", len(start_positions))
-        end_scores = end_positions[0]
-#   
+        start_scores = sum(start_positions)/float(len(start_positions))
+        end_scores = sum(end_positions)/float(len(end_positions))
+   
         if self.training:
-            #print("output: ", torch.log(start_scores))
-            return torch.log(start_scores), torch.log(end_scores)
-        else:
             return start_scores, end_scores
+        else:
+            return start_scores.exp(), end_scores.exp()
